@@ -168,6 +168,8 @@ export function tui(input: {
         targetFps: 60,
         gatherStats: false,
         exitOnCtrlC: false,
+        useMouse: true,
+        enableMouseMovement: true,
         useKittyKeyboard: {},
         consoleOptions: {
           keyBindings: [{ name: "y", ctrl: true, action: "copy-selection" }],
