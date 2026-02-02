@@ -42,12 +42,69 @@ function createWorkerFetch(client: RpcClient): typeof fetch {
       }).catch(() => {})
       // #endregion
     }
+    if (request.url.includes("/session/")) {
+      // #region agent log
+      fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "spawn-pre-fix",
+          hypothesisId: "S9",
+          location: "tui/thread.ts:createWorkerFetch",
+          message: "session request via worker fetch",
+          data: {
+            url: request.url,
+            method: request.method,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+    }
+    // #region agent log
+    fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "spawn-pre-fix",
+        hypothesisId: "S11",
+        location: "tui/thread.ts:createWorkerFetch.before",
+        message: "rpc fetch call start",
+        data: {
+          url: request.url,
+          method: request.method,
+          bodyLength: body?.length ?? 0,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
     const result = await client.call("fetch", {
       url: request.url,
       method: request.method,
       headers: Object.fromEntries(request.headers.entries()),
       body,
     })
+    // #region agent log
+    fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "spawn-pre-fix",
+        hypothesisId: "S11",
+        location: "tui/thread.ts:createWorkerFetch.after",
+        message: "rpc fetch call result",
+        data: {
+          status: result.status,
+          bodyLength: result.body?.length ?? 0,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
     return new Response(result.body, {
       status: result.status,
       headers: result.headers,

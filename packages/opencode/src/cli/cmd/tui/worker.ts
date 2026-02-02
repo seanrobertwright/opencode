@@ -98,6 +98,25 @@ startEventStream(process.cwd())
 
 export const rpc = {
   async fetch(input: { url: string; method: string; headers: Record<string, string>; body?: string }) {
+    // #region agent log
+    fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "spawn-pre-fix",
+        hypothesisId: "S12",
+        location: "tui/worker.ts:rpc.fetch.entry",
+        message: "rpc fetch entry",
+        data: {
+          url: input.url,
+          method: input.method,
+          bodyLength: input.body?.length ?? 0,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
     const headers = { ...input.headers }
     const auth = getAuthorizationHeader()
     if (auth && !headers["authorization"] && !headers["Authorization"]) {
@@ -110,6 +129,24 @@ export const rpc = {
     })
     const response = await Server.App().fetch(request)
     const body = await response.text()
+    // #region agent log
+    fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "spawn-pre-fix",
+        hypothesisId: "S12",
+        location: "tui/worker.ts:rpc.fetch.result",
+        message: "rpc fetch result",
+        data: {
+          status: response.status,
+          bodyLength: body.length,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
     return {
       status: response.status,
       headers: Object.fromEntries(response.headers.entries()),

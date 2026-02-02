@@ -743,6 +743,26 @@ function SessionRouteGuard(props: { sessionID: string }) {
     async (sessionID) => {
       try {
         const response = await sdk.client.session.get({ sessionID })
+        // #region agent log
+        fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "spawn-pre-fix",
+            hypothesisId: "S7",
+            location: "tui/app.tsx:sessionRouteGuard.get",
+            message: "session route guard get",
+            data: {
+              sessionID,
+              hasData: !!response.data,
+              status: response.response?.status ?? null,
+              error: response.error ?? null,
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
         return !!response.data
       } catch (e: any) {
         const isNotFound =
@@ -753,6 +773,25 @@ function SessionRouteGuard(props: { sessionID: string }) {
           e?.message?.includes("Session not found")
         if (isNotFound) {
           // Navigate to home if session doesn't exist
+          // #region agent log
+          fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: "debug-session",
+              runId: "spawn-pre-fix",
+              hypothesisId: "S8",
+              location: "tui/app.tsx:sessionRouteGuard.notFound",
+              message: "session route guard not found",
+              data: {
+                sessionID,
+                status: e?.status ?? e?.response?.status ?? null,
+                name: e?.name ?? null,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
           route.navigate({ type: "home" })
           return false
         }

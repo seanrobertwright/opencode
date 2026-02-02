@@ -19,6 +19,7 @@ import { useSDK } from "../context/sdk"
 import { useToast } from "../ui/toast"
 import { useRoute } from "../context/route"
 import { createSignal } from "solid-js"
+import { AgentTabs } from "../component/agent-tabs"
 
 // TODO: what is the best way to do this?
 let once = false
@@ -133,8 +134,9 @@ export function Home() {
 
   return (
     <>
+      <AgentTabs />
       <box flexGrow={1} justifyContent="center" alignItems="center" paddingLeft={2} paddingRight={2} gap={1}>
-        <box height={3} />
+        <box height={2} />
         <Logo />
         <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1}>
           <Prompt

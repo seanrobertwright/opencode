@@ -61,6 +61,7 @@ import { DialogSessionRename } from "../../component/dialog-session-rename"
 import { DialogAgentSpawn } from "../../component/dialog-agent-spawn"
 import { DialogAgentList } from "../../component/dialog-agent-list"
 import { Sidebar } from "./sidebar"
+import { AgentTabs } from "../../component/agent-tabs"
 import { Flag } from "@/flag/flag"
 import { LANGUAGE_EXTENSIONS } from "@/lsp/language"
 import parsers from "../../../../../../parsers-config.ts"
@@ -132,6 +133,9 @@ export function Session() {
     if (session()?.parentID) return []
     return children().flatMap((x) => sync.data.question[x.id] ?? [])
   })
+  const isAgentSession = createMemo(() =>
+    Object.values(sync.data.agent_process).some((agent) => agent.sessionID === route.sessionID),
+  )
 
   const pending = createMemo(() => {
     return messages().findLast((x) => x.role === "assistant" && !x.time.completed)?.id
@@ -1160,9 +1164,12 @@ export function Session() {
         sync,
       }}
     >
-      <box flexDirection="row">
-        <box flexGrow={1} paddingBottom={1} paddingTop={1} paddingLeft={2} paddingRight={2} gap={1}>
-          <Show when={session()}>
+      <box flexDirection="column" height="100%">
+        <Show when={session()}>
+          <AgentTabs sessionID={route.sessionID} />
+        </Show>
+        <box flexDirection="row" flexGrow={1}>
+          <box flexGrow={1} paddingBottom={1} paddingTop={1} paddingLeft={2} paddingRight={2} gap={1}>
             <Show when={!sidebarVisible() || !wide()}>
               <Header />
             </Show>
@@ -1288,7 +1295,7 @@ export function Session() {
                 <QuestionPrompt request={questions()[0]} />
               </Show>
               <Prompt
-                visible={!session()?.parentID && permissions().length === 0 && questions().length === 0}
+                visible={(!session()?.parentID || isAgentSession()) && permissions().length === 0 && questions().length === 0}
                 ref={(r) => {
                   prompt = r
                   promptRef.set(r)
@@ -1304,29 +1311,29 @@ export function Session() {
                 sessionID={route.sessionID}
               />
             </box>
-          </Show>
+          </box>
           <Toast />
-        </box>
-        <Show when={sidebarVisible()}>
-          <Switch>
-            <Match when={wide()}>
-              <Sidebar sessionID={route.sessionID} />
-            </Match>
-            <Match when={!wide()}>
-              <box
-                position="absolute"
-                top={0}
-                left={0}
-                right={0}
-                bottom={0}
-                alignItems="flex-end"
-                backgroundColor={RGBA.fromInts(0, 0, 0, 70)}
-              >
+          <Show when={sidebarVisible()}>
+            <Switch>
+              <Match when={wide()}>
                 <Sidebar sessionID={route.sessionID} />
-              </box>
-            </Match>
-          </Switch>
-        </Show>
+              </Match>
+              <Match when={!wide()}>
+                <box
+                  position="absolute"
+                  top={0}
+                  left={0}
+                  right={0}
+                  bottom={0}
+                  alignItems="flex-end"
+                  backgroundColor={RGBA.fromInts(0, 0, 0, 70)}
+                >
+                  <Sidebar sessionID={route.sessionID} />
+                </box>
+              </Match>
+            </Switch>
+          </Show>
+        </box>
       </box>
     </context.Provider>
   )
