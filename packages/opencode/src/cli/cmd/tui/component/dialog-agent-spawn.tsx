@@ -3,9 +3,12 @@ import { useDialog } from "@tui/ui/dialog"
 import { useSDK } from "@tui/context/sdk"
 import { useToast } from "@tui/ui/toast"
 import { useSync } from "@tui/context/sync"
+import { createSignal } from "solid-js"
+import type { AgentProcess } from "@/agent-process"
 
 interface DialogAgentSpawnProps {
   sessionID: string
+  onSpawn?: (info: AgentProcess.Info) => void
 }
 
 export function DialogAgentSpawn(props: DialogAgentSpawnProps) {
@@ -13,6 +16,7 @@ export function DialogAgentSpawn(props: DialogAgentSpawnProps) {
   const sdk = useSDK()
   const toast = useToast()
   const sync = useSync()
+  const [submitting, setSubmitting] = createSignal(false)
   // Use raw directory path - useDirectory() adds branch suffix which breaks the server
   const directory = () => sync.data.path.directory || process.cwd()
 
@@ -25,6 +29,8 @@ export function DialogAgentSpawn(props: DialogAgentSpawnProps) {
           toast.show({ message: "Agent title is required", variant: "error" })
           return
         }
+        if (submitting()) return
+        setSubmitting(true)
         // #region agent log
         fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
           method: "POST",
@@ -74,6 +80,7 @@ export function DialogAgentSpawn(props: DialogAgentSpawnProps) {
           // #endregion
           const text = typeof res.error === "string" ? res.error : JSON.stringify(res.error)
           toast.show({ message: `Failed to spawn agent: ${text}`, variant: "error" })
+          setSubmitting(false)
           return
         }
         // #region agent log
@@ -95,6 +102,12 @@ export function DialogAgentSpawn(props: DialogAgentSpawnProps) {
           }),
         }).catch(() => {})
         // #endregion
+        if (!res.data) {
+          toast.show({ message: "Failed to spawn agent: empty response", variant: "error" })
+          setSubmitting(false)
+          return
+        }
+        props.onSpawn?.(res.data)
         toast.show({ message: `Agent "${title}" spawned`, variant: "success" })
         dialog.clear()
       }}

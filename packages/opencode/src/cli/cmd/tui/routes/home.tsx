@@ -14,6 +14,11 @@ import { usePromptRef } from "../context/prompt"
 import { Installation } from "@/installation"
 import { useKV } from "../context/kv"
 import { useCommandDialog } from "../component/dialog-command"
+import { DialogAgentSpawn } from "../component/dialog-agent-spawn"
+import { useSDK } from "../context/sdk"
+import { useToast } from "../ui/toast"
+import { useRoute } from "../context/route"
+import { createSignal } from "solid-js"
 
 // TODO: what is the best way to do this?
 let once = false
@@ -25,6 +30,10 @@ export function Home() {
   const route = useRouteData("home")
   const promptRef = usePromptRef()
   const command = useCommandDialog()
+  const sdk = useSDK()
+  const toast = useToast()
+  const router = useRoute()
+  const [spawning, setSpawning] = createSignal(false)
   const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0)
   const mcpError = createMemo(() => {
     return Object.values(sync.data.mcp).some((x) => x.status === "failed")
@@ -51,6 +60,36 @@ export function Home() {
       onSelect: (dialog) => {
         kv.set("tips_hidden", !tipsHidden())
         dialog.clear()
+      },
+    },
+    {
+      title: "Spawn agent",
+      value: "agent.spawn",
+      category: "Agent",
+      slash: {
+        name: "spawn",
+        aliases: ["agent"],
+      },
+      onSelect: async (dialog) => {
+        if (spawning()) return
+        setSpawning(true)
+        const res = await sdk.client.session.create({})
+        if (res.error || !res.data) {
+          const text = res.error ? (typeof res.error === "string" ? res.error : JSON.stringify(res.error)) : "Unknown error"
+          toast.show({ message: `Failed to start session: ${text}`, variant: "error" })
+          setSpawning(false)
+          return
+        }
+        const sessionID = res.data.id
+        dialog.replace(() => (
+          <DialogAgentSpawn
+            sessionID={sessionID}
+            onSpawn={(info) => {
+              router.navigate({ type: "session", sessionID: info.sessionID })
+            }}
+          />
+        ))
+        setSpawning(false)
       },
     },
   ])
