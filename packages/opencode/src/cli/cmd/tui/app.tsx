@@ -2,7 +2,7 @@ import { render, useKeyboard, useRenderer, useTerminalDimensions } from "@opentu
 import { Clipboard } from "@tui/util/clipboard"
 import { TextAttributes } from "@opentui/core"
 import { RouteProvider, useRoute } from "@tui/context/route"
-import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show, on } from "solid-js"
+import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show, on, createResource } from "solid-js"
 import { Installation } from "@/installation"
 import { Flag } from "@/flag/flag"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
@@ -238,7 +238,7 @@ function App() {
   })
 
   const args = useArgs()
-  onMount(() => {
+  onMount(async () => {
     batch(() => {
       if (args.agent) local.agent.set(args.agent)
       if (args.model) {
@@ -252,24 +252,55 @@ function App() {
         local.model.set({ providerID, modelID }, { recent: true })
       }
       if (args.sessionID) {
-        route.navigate({
-          type: "session",
-          sessionID: args.sessionID,
-        })
+        // Verify session exists before navigating
+        sdk.client.session
+          .get({ sessionID: args.sessionID })
+          .then((response) => {
+            if (response.data) {
+              route.navigate({
+                type: "session",
+                sessionID: args.sessionID,
+              })
+            }
+          })
+          .catch(() => {
+            // Session doesn't exist, don't navigate
+          })
       }
     })
   })
 
   let continued = false
-  createEffect(() => {
+  let lastCheckedSessionID: string | undefined
+  createEffect(async () => {
     // When using -c, session list is loaded in blocking phase, so we can navigate at "partial"
-    if (continued || sync.status === "loading" || !args.continue) return
+    // Don't navigate if already continued, still loading, not using -c, or already on a session route
+    if (
+      continued ||
+      sync.status === "loading" ||
+      !args.continue ||
+      route.data.type === "session"
+    )
+      return
     const match = sync.data.session
       .toSorted((a, b) => b.time.updated - a.time.updated)
       .find((x) => x.parentID === undefined)?.id
-    if (match) {
-      continued = true
-      route.navigate({ type: "session", sessionID: match })
+    if (match && match !== lastCheckedSessionID) {
+      lastCheckedSessionID = match
+      // Verify session exists before navigating
+      try {
+        const response = await sdk.client.session.get({ sessionID: match })
+        if (response.data) {
+          continued = true
+          route.navigate({ type: "session", sessionID: match })
+        } else {
+          // Session doesn't exist, reset flag so we can try next session
+          lastCheckedSessionID = undefined
+        }
+      } catch {
+        // Session doesn't exist, reset flag so we can try next session
+        lastCheckedSessionID = undefined
+      }
     }
   })
 
@@ -685,10 +716,57 @@ function App() {
           <Home />
         </Match>
         <Match when={route.data.type === "session"}>
-          <Session />
+          <SessionRouteGuard sessionID={route.data.sessionID} />
         </Match>
       </Switch>
     </box>
+  )
+}
+
+function SessionRouteGuard(props: { sessionID: string }) {
+  const route = useRoute()
+  const sdk = useSDK()
+  const sync = useSync()
+  
+  // First check sync store synchronously (fast path)
+  const sessionInStore = sync.session.get(props.sessionID)
+  
+  // If session is in store, render immediately
+  if (sessionInStore) {
+    return <Session />
+  }
+  
+  // If not in store, check server asynchronously
+  const [sessionExists] = createResource(
+    () => props.sessionID,
+    async (sessionID) => {
+      try {
+        const response = await sdk.client.session.get({ sessionID })
+        return !!response.data
+      } catch (e: any) {
+        const isNotFound =
+          e?.status === 404 ||
+          e?.response?.status === 404 ||
+          e?.name === "NotFoundError" ||
+          e?.message?.includes("not found") ||
+          e?.message?.includes("Session not found")
+        if (isNotFound) {
+          // Navigate to home if session doesn't exist
+          route.navigate({ type: "home" })
+          return false
+        }
+        // For other errors, assume session exists (let Session component handle it)
+        return true
+      }
+    },
+  )
+
+  // Don't render Session component if session doesn't exist
+  // This prevents the flash
+  return (
+    <Show when={sessionExists() !== false} fallback={null}>
+      <Session />
+    </Show>
   )
 }
 

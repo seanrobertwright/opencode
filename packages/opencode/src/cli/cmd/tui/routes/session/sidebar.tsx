@@ -11,10 +11,13 @@ import { useKeybind } from "../../context/keybind"
 import { useDirectory } from "../../context/directory"
 import { useKV } from "../../context/kv"
 import { TodoItem } from "../../component/todo-item"
+import { AgentProcess } from "@/agent-process"
+import { useRoute } from "@tui/context/route"
 
 export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const sync = useSync()
   const { theme } = useTheme()
+  const { navigate } = useRoute()
   const session = createMemo(() => sync.session.get(props.sessionID)!)
   const diff = createMemo(() => sync.data.session_diff[props.sessionID] ?? [])
   const todo = createMemo(() => sync.data.todo[props.sessionID] ?? [])
@@ -25,10 +28,22 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
     diff: true,
     todo: true,
     lsp: true,
+    agents: true,
   })
 
   // Sort MCP servers alphabetically for consistent display order
   const mcpEntries = createMemo(() => Object.entries(sync.data.mcp).sort(([a], [b]) => a.localeCompare(b)))
+
+  // Get agent processes sorted by creation time
+  const agentEntries = createMemo(() =>
+    Object.values(sync.data.agent_process).sort((a, b) => a.createdAt - b.createdAt),
+  )
+
+  // Count running and error agent processes
+  const runningAgentCount = createMemo(
+    () => agentEntries().filter((a) => a.status === "running" || a.status === "working" || a.status === "idle").length,
+  )
+  const errorAgentCount = createMemo(() => agentEntries().filter((a) => a.status === "error").length)
 
   // Count connected and error MCP servers for collapsed header display
   const connectedMcpCount = createMemo(() => mcpEntries().filter(([_, item]) => item.status === "connected").length)
@@ -150,6 +165,81 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                               <Match when={(item.status as string) === "needs_client_registration"}>
                                 Needs client ID
                               </Match>
+                            </Switch>
+                          </span>
+                        </text>
+                      </box>
+                    )}
+                  </For>
+                </Show>
+              </box>
+            </Show>
+            <Show when={agentEntries().length > 0}>
+              <box>
+                <box
+                  flexDirection="row"
+                  gap={1}
+                  onMouseDown={() => agentEntries().length > 2 && setExpanded("agents", !expanded.agents)}
+                >
+                  <Show when={agentEntries().length > 2}>
+                    <text fg={theme.text}>{expanded.agents ? "▼" : "▶"}</text>
+                  </Show>
+                  <text fg={theme.text}>
+                    <b>Agents</b>
+                    <Show when={!expanded.agents}>
+                      <span style={{ fg: theme.textMuted }}>
+                        {" "}
+                        ({runningAgentCount()} running
+                        {errorAgentCount() > 0 ? `, ${errorAgentCount()} error${errorAgentCount() > 1 ? "s" : ""}` : ""})
+                      </span>
+                    </Show>
+                  </text>
+                </box>
+                <Show when={agentEntries().length <= 2 || expanded.agents}>
+                  <For each={agentEntries()}>
+                    {(agent) => (
+                      <box
+                        flexDirection="row"
+                        gap={1}
+                        onMouseDown={async () => {
+                          try {
+                            // Ensure session is synced before navigating
+                            await sync.session.sync(agent.sessionID)
+                            navigate({ type: "session", sessionID: agent.sessionID })
+                          } catch (e) {
+                            console.error("Failed to sync agent session", e)
+                            // Still navigate - the session route will handle the error
+                            navigate({ type: "session", sessionID: agent.sessionID })
+                          }
+                        }}
+                      >
+                        <text
+                          flexShrink={0}
+                          style={{
+                            fg: (
+                              {
+                                starting: theme.textMuted,
+                                running: theme.success,
+                                idle: theme.text,
+                                working: theme.warning,
+                                error: theme.error,
+                                stopped: theme.textMuted,
+                              } as Record<string, typeof theme.success>
+                            )[agent.status],
+                          }}
+                        >
+                          {AgentProcess.getStatusIcon(agent.status)}
+                        </text>
+                        <text fg={theme.text} wrapMode="word">
+                          {agent.title}{" "}
+                          <span style={{ fg: theme.textMuted }}>
+                            <Switch fallback={agent.status}>
+                              <Match when={agent.status === "starting"}>Starting...</Match>
+                              <Match when={agent.status === "running"}>Running</Match>
+                              <Match when={agent.status === "idle"}>Idle</Match>
+                              <Match when={agent.status === "working"}>Working</Match>
+                              <Match when={agent.status === "error" && agent.error}>{agent.error}</Match>
+                              <Match when={agent.status === "stopped"}>Stopped</Match>
                             </Switch>
                           </span>
                         </text>

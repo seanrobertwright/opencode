@@ -224,8 +224,9 @@ export namespace Session {
         updated: Date.now(),
       },
     }
-    log.info("created", result)
+    log.info("created", { ...result, projectID: Instance.project.id })
     await Storage.write(["session", Instance.project.id, result.id], result)
+    log.info("session written to storage", { sessionID: result.id, projectID: Instance.project.id })
     Bus.publish(Event.Created, {
       info: result,
     })
@@ -254,8 +255,13 @@ export namespace Session {
   }
 
   export const get = fn(Identifier.schema("session"), async (id) => {
-    const read = await Storage.read<Info>(["session", Instance.project.id, id])
-    return read as Info
+    try {
+      const read = await Storage.read<Info>(["session", Instance.project.id, id])
+      return read as Info
+    } catch (e) {
+      log.error("session.get failed", { sessionID: id, projectID: Instance.project.id, error: e })
+      throw e
+    }
   })
 
   export const getShare = fn(Identifier.schema("session"), async (id) => {

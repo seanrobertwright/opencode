@@ -513,10 +513,94 @@ export function Prompt(props: PromptProps) {
   ])
 
   async function submit() {
+    // #region agent log
+    fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "pre-fix",
+        hypothesisId: "H1",
+        location: "component/prompt/index.tsx:submit.entry",
+        message: "prompt submit entry",
+        data: {
+          sessionID: props.sessionID ?? null,
+          inputLength: store.prompt.input.length,
+          trimmedLength: store.prompt.input.trim().length,
+          partsCount: store.prompt.parts.length,
+          mode: store.mode,
+          disabled: !!props.disabled,
+          autocompleteVisible: !!autocomplete?.visible,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
+    if (store.prompt.input.length <= 4) {
+      // #region agent log
+      fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "pre-fix",
+          hypothesisId: "H3",
+          location: "component/prompt/index.tsx:submit.input.codes",
+          message: "prompt submit input codepoints",
+          data: {
+            length: store.prompt.input.length,
+            trimmedLength: store.prompt.input.trim().length,
+            codepoints: Array.from(store.prompt.input).map((c) => c.charCodeAt(0)),
+            whitespaceFlags: Array.from(store.prompt.input).map((c) => c.trim().length === 0),
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+    }
     if (props.disabled) return
     if (autocomplete?.visible) return
-    if (!store.prompt.input) return
+    if (!store.prompt.input) {
+      // #region agent log
+      fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "pre-fix",
+          hypothesisId: "H2",
+          location: "component/prompt/index.tsx:submit.empty",
+          message: "prompt submit blocked - empty input",
+          data: {
+            sessionID: props.sessionID ?? null,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+      return
+    }
     const trimmed = store.prompt.input.trim()
+    if (trimmed.length === 0) {
+      // #region agent log
+      fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "pre-fix",
+          hypothesisId: "H3",
+          location: "component/prompt/index.tsx:submit.trimmed-empty",
+          message: "prompt submit trimmed empty",
+          data: {
+            sessionID: props.sessionID ?? null,
+            inputLength: store.prompt.input.length,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+    }
     if (trimmed === "exit" || trimmed === "quit" || trimmed === ":q") {
       exit()
       return
@@ -530,6 +614,25 @@ export function Prompt(props: PromptProps) {
       ? props.sessionID
       : await (async () => {
           const sessionID = await sdk.client.session.create({}).then((x) => x.data!.id)
+          // #region agent log
+          fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: "debug-session",
+              runId: "pre-fix",
+              hypothesisId: "H1",
+              location: "component/prompt/index.tsx:submit.session.create",
+              message: "session created in submit",
+              data: {
+                sessionID,
+                inputLength: store.prompt.input.length,
+                trimmedLength: store.prompt.input.trim().length,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
           return sessionID
         })()
     const messageID = Identifier.ascending("message")
@@ -635,13 +738,14 @@ export function Prompt(props: PromptProps) {
     props.onSubmit?.()
 
     // temporary hack to make sure the message is sent
-    if (!props.sessionID)
+    if (!props.sessionID) {
       setTimeout(() => {
         route.navigate({
           type: "session",
           sessionID,
         })
       }, 50)
+    }
     input.clear()
   }
   const exit = useExit()
@@ -843,6 +947,23 @@ export function Prompt(props: PromptProps) {
                 }
                 if (keybind.match("app_exit", e)) {
                   if (store.prompt.input === "") {
+                    // #region agent log
+                    fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        sessionId: "debug-session",
+                        runId: "pre-fix",
+                        hypothesisId: "H4",
+                        location: "component/prompt/index.tsx:keybind.app_exit",
+                        message: "app_exit triggered with empty input",
+                        data: {
+                          key: e.name,
+                        },
+                        timestamp: Date.now(),
+                      }),
+                    }).catch(() => {})
+                    // #endregion
                     await exit()
                     // Don't preventDefault - let textarea potentially handle the event
                     e.preventDefault()

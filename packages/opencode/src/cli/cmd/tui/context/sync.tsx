@@ -28,6 +28,7 @@ import { useArgs } from "./args"
 import { batch, onMount } from "solid-js"
 import { Log } from "@/util/log"
 import type { Path } from "@opencode-ai/sdk"
+import type { AgentProcess } from "@/agent-process"
 
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
@@ -73,6 +74,9 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       formatter: FormatterStatus[]
       vcs: VcsInfo | undefined
       path: Path
+      agent_process: {
+        [id: string]: AgentProcess.Info
+      }
     }>({
       provider_next: {
         all: [],
@@ -100,6 +104,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       formatter: [],
       vcs: undefined,
       path: { state: "", config: "", worktree: "", directory: "" },
+      agent_process: {},
     })
 
     const sdk = useSDK()
@@ -320,6 +325,22 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
         case "vcs.branch.updated": {
           setStore("vcs", { branch: event.properties.branch })
+          break
+        }
+
+        case "agent-process.created":
+        case "agent-process.updated": {
+          setStore("agent_process", event.properties.info.id, reconcile(event.properties.info))
+          break
+        }
+
+        case "agent-process.stopped": {
+          setStore(
+            "agent_process",
+            produce((draft) => {
+              delete draft[event.properties.id]
+            }),
+          )
           break
         }
       }

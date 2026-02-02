@@ -58,6 +58,8 @@ import { DialogConfirm } from "@tui/ui/dialog-confirm"
 import { DialogTimeline } from "./dialog-timeline"
 import { DialogForkFromTimeline } from "./dialog-fork-from-timeline"
 import { DialogSessionRename } from "../../component/dialog-session-rename"
+import { DialogAgentSpawn } from "../../component/dialog-agent-spawn"
+import { DialogAgentList } from "../../component/dialog-agent-list"
 import { Sidebar } from "./sidebar"
 import { Flag } from "@/flag/flag"
 import { LANGUAGE_EXTENSIONS } from "@/lsp/language"
@@ -108,7 +110,8 @@ function use() {
 
 export function Session() {
   const route = useRouteData("session")
-  const { navigate } = useRoute()
+  const routeContext = useRoute()
+  const { navigate } = routeContext
   const sync = useSync()
   const kv = useKV()
   const { theme } = useTheme()
@@ -172,24 +175,213 @@ export function Session() {
     return new CustomSpeedScroll(3)
   })
 
-  createEffect(async () => {
-    await sync.session
-      .sync(route.sessionID)
-      .then(() => {
-        if (scroll) scroll.scrollBy(100_000)
-      })
-      .catch((e) => {
-        console.error(e)
-        toast.show({
-          message: `Session not found: ${route.sessionID}`,
-          variant: "error",
-        })
-        return navigate({ type: "home" })
-      })
-  })
-
   const toast = useToast()
   const sdk = useSDK()
+
+  // Track if we're currently processing to prevent concurrent runs
+  let isProcessing = false
+  // Track the last session ID we navigated away from to prevent loops
+  let lastNavigatedAwayFrom: string | undefined
+  // Track if we're navigating away to prevent rendering
+  const [isNavigatingAway, setIsNavigatingAway] = createSignal(false)
+
+  createEffect(
+    on(
+      () => route.sessionID,
+      async (sessionID) => {
+        // #region agent log
+        fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "pre-fix",
+            hypothesisId: "H1",
+            location: "routes/session/index.tsx:route.effect.entry",
+            message: "session route effect entry",
+            data: {
+              sessionID,
+              lastNavigatedAwayFrom: lastNavigatedAwayFrom ?? null,
+              isNavigatingAway: isNavigatingAway(),
+              routeType: routeContext.data.type,
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
+        // Don't process if we just navigated away from this session
+        if (lastNavigatedAwayFrom === sessionID) {
+          return
+        }
+        
+        // Don't process if we're already on home (component might be unmounting)
+        if (routeContext.data.type === "home") {
+          return
+        }
+        
+        // Don't process if we're already navigating away
+        if (isNavigatingAway()) {
+          return
+        }
+        
+        // Prevent concurrent runs
+        if (isProcessing) return
+        isProcessing = true
+
+        try {
+          // #region agent log
+          fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: "debug-session",
+              runId: "pre-fix",
+              hypothesisId: "H1",
+              location: "routes/session/index.tsx:session.get",
+              message: "session get before sync",
+              data: {
+                sessionID,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
+          // Always verify session exists on server before syncing
+          // This handles cases where session was deleted but still in local store
+          const sessionResponse = await sdk.client.session.get({ sessionID })
+          if (!sessionResponse.data) {
+            // #region agent log
+            fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sessionId: "debug-session",
+                runId: "pre-fix",
+                hypothesisId: "H1",
+                location: "routes/session/index.tsx:session.get.result",
+                message: "session get returned no data",
+                data: {
+                  sessionID,
+                  status: sessionResponse.response?.status ?? null,
+                  error: sessionResponse.error ?? null,
+                },
+                timestamp: Date.now(),
+              }),
+            }).catch(() => {})
+            // #endregion
+          }
+          if (!sessionResponse.data) {
+            // Session doesn't exist - navigate away silently
+            lastNavigatedAwayFrom = sessionID
+            isProcessing = false
+            setIsNavigatingAway(true)
+            if (routeContext.data.type === "session") {
+              navigate({ type: "home" })
+            }
+            // #region agent log
+            fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sessionId: "debug-session",
+                runId: "pre-fix",
+                hypothesisId: "H1",
+                location: "routes/session/index.tsx:session.get.missing",
+                message: "session missing from get response",
+                data: {
+                  sessionID,
+                },
+                timestamp: Date.now(),
+              }),
+            }).catch(() => {})
+            // #endregion
+            return
+          }
+        } catch (e: any) {
+          // Check if this is a "not found" error
+          const isNotFound =
+            e?.status === 404 ||
+            e?.response?.status === 404 ||
+            e?.name === "NotFoundError" ||
+            e?.message?.includes("not found") ||
+            e?.message?.includes("Session not found")
+
+          if (isNotFound) {
+            // Session doesn't exist on server - navigate away silently
+            lastNavigatedAwayFrom = sessionID
+            isProcessing = false
+            setIsNavigatingAway(true)
+            if (routeContext.data.type === "session") {
+              navigate({ type: "home" })
+            }
+            // #region agent log
+            fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sessionId: "debug-session",
+                runId: "pre-fix",
+                hypothesisId: "H1",
+                location: "routes/session/index.tsx:session.get.notfound",
+                message: "session get 404/not found",
+                data: {
+                  sessionID,
+                  status: e?.status ?? e?.response?.status ?? null,
+                  name: e?.name ?? null,
+                },
+                timestamp: Date.now(),
+              }),
+            }).catch(() => {})
+            // #endregion
+            return
+          }
+          // For other errors, we'll let sync handle it
+        }
+
+        // Session exists on server, proceed with sync
+        await sync.session
+          .sync(sessionID)
+          .then(() => {
+            if (scroll) scroll.scrollBy(100_000)
+            // Reset tracking on success
+            lastNavigatedAwayFrom = undefined
+            isProcessing = false
+          })
+          .catch((e: any) => {
+            console.error(e)
+            // Check if this is a "not found" error (404 or NotFoundError)
+            const isNotFound =
+              e?.status === 404 ||
+              e?.response?.status === 404 ||
+              e?.name === "NotFoundError" ||
+              e?.message?.includes("not found") ||
+              e?.message?.includes("Session not found")
+
+            // If session was deleted (not found), navigate away silently
+            if (isNotFound) {
+              lastNavigatedAwayFrom = sessionID
+              isProcessing = false
+              setIsNavigatingAway(true)
+              navigate({ type: "home" })
+              return
+            }
+
+            // For other errors, show error message
+            toast.show({
+              message: `Failed to sync session: ${sessionID}`,
+              variant: "error",
+            })
+            lastNavigatedAwayFrom = sessionID
+            isProcessing = false
+            setIsNavigatingAway(true)
+            navigate({ type: "home" })
+          })
+          .finally(() => {
+            isProcessing = false
+          })
+      },
+    ),
+  )
 
   // Handle initial prompt from fork
   createEffect(() => {
@@ -378,6 +570,31 @@ export function Session() {
             sessionID={route.sessionID}
           />
         ))
+      },
+    },
+    {
+      title: "Spawn agent",
+      value: "agent.spawn",
+      category: "Agent",
+      slash: {
+        name: "spawn",
+        aliases: ["agent"],
+      },
+      onSelect: (dialog) => {
+        dialog.replace(() => <DialogAgentSpawn sessionID={route.sessionID} />)
+      },
+    },
+    {
+      title: "List agent processes",
+      value: "agent_process.list",
+      category: "Agent",
+      enabled: Object.keys(sync.data.agent_process).length > 0,
+      slash: {
+        name: "procs",
+        aliases: ["processes"],
+      },
+      onSelect: (dialog) => {
+        dialog.replace(() => <DialogAgentList />)
       },
     },
     {
@@ -923,6 +1140,11 @@ export function Session() {
 
   // snap to bottom when session changes
   createEffect(on(() => route.sessionID, toBottom))
+
+  // Don't render if we're navigating away
+  if (isNavigatingAway() || routeContext.data.type === "home") {
+    return null
+  }
 
   return (
     <context.Provider

@@ -883,6 +883,55 @@ export type EventWorktreeFailed = {
   }
 }
 
+export type EventAgentProcessCreated = {
+  type: "agent-process.created"
+  properties: {
+    info: {
+      id: string
+      sessionID: string
+      parentSessionID: string
+      title: string
+      status: "starting" | "running" | "idle" | "working" | "error" | "stopped"
+      agent?: string
+      model?: {
+        providerID: string
+        modelID: string
+      }
+      error?: string
+      lastActivity: number
+      createdAt: number
+    }
+  }
+}
+
+export type EventAgentProcessUpdated = {
+  type: "agent-process.updated"
+  properties: {
+    info: {
+      id: string
+      sessionID: string
+      parentSessionID: string
+      title: string
+      status: "starting" | "running" | "idle" | "working" | "error" | "stopped"
+      agent?: string
+      model?: {
+        providerID: string
+        modelID: string
+      }
+      error?: string
+      lastActivity: number
+      createdAt: number
+    }
+  }
+}
+
+export type EventAgentProcessStopped = {
+  type: "agent-process.stopped"
+  properties: {
+    id: string
+  }
+}
+
 export type Event =
   | EventInstallationUpdated
   | EventInstallationUpdateAvailable
@@ -926,6 +975,9 @@ export type Event =
   | EventPtyDeleted
   | EventWorktreeReady
   | EventWorktreeFailed
+  | EventAgentProcessCreated
+  | EventAgentProcessUpdated
+  | EventAgentProcessStopped
 
 export type GlobalEvent = {
   directory: string
@@ -4465,6 +4517,165 @@ export type McpDisconnectResponses = {
 }
 
 export type McpDisconnectResponse = McpDisconnectResponses[keyof McpDisconnectResponses]
+
+export type AgentProcessListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/agent-process"
+}
+
+export type AgentProcessListResponses = {
+  /**
+   * List of agent processes
+   */
+  200: Array<{
+    id: string
+    sessionID: string
+    parentSessionID: string
+    title: string
+    status: "starting" | "running" | "idle" | "working" | "error" | "stopped"
+    agent?: string
+    model?: {
+      providerID: string
+      modelID: string
+    }
+    error?: string
+    lastActivity: number
+    createdAt: number
+  }>
+}
+
+export type AgentProcessListResponse = AgentProcessListResponses[keyof AgentProcessListResponses]
+
+export type AgentProcessSpawnData = {
+  body?: {
+    /**
+     * ID of the parent session
+     */
+    parentSessionID: string
+    /**
+     * Title for the agent process
+     */
+    title: string
+    /**
+     * Agent type to use
+     */
+    agent?: string
+    /**
+     * Model to use for the agent
+     */
+    model?: {
+      providerID: string
+      modelID: string
+    }
+    /**
+     * Initial prompt to send to the agent
+     */
+    prompt?: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/agent-process"
+}
+
+export type AgentProcessSpawnResponses = {
+  /**
+   * Agent process info
+   */
+  200: {
+    id: string
+    sessionID: string
+    parentSessionID: string
+    title: string
+    status: "starting" | "running" | "idle" | "working" | "error" | "stopped"
+    agent?: string
+    model?: {
+      providerID: string
+      modelID: string
+    }
+    error?: string
+    lastActivity: number
+    createdAt: number
+  }
+}
+
+export type AgentProcessSpawnResponse = AgentProcessSpawnResponses[keyof AgentProcessSpawnResponses]
+
+export type AgentProcessSendPromptData = {
+  body?: {
+    /**
+     * Prompt to send to the agent
+     */
+    prompt: string
+  }
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/agent-process/{id}/prompt"
+}
+
+export type AgentProcessSendPromptResponses = {
+  /**
+   * Success
+   */
+  200: {
+    success: boolean
+  }
+}
+
+export type AgentProcessSendPromptResponse = AgentProcessSendPromptResponses[keyof AgentProcessSendPromptResponses]
+
+export type AgentProcessCancelData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/agent-process/{id}/cancel"
+}
+
+export type AgentProcessCancelResponses = {
+  /**
+   * Success
+   */
+  200: {
+    success: boolean
+  }
+}
+
+export type AgentProcessCancelResponse = AgentProcessCancelResponses[keyof AgentProcessCancelResponses]
+
+export type AgentProcessStopData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/agent-process/{id}/stop"
+}
+
+export type AgentProcessStopResponses = {
+  /**
+   * Success
+   */
+  200: {
+    success: boolean
+  }
+}
+
+export type AgentProcessStopResponse = AgentProcessStopResponses[keyof AgentProcessStopResponses]
 
 export type TuiAppendPromptData = {
   body?: {

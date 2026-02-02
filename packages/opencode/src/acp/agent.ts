@@ -1140,7 +1140,15 @@ export namespace ACP {
 
     async prompt(params: PromptRequest) {
       const sessionID = params.sessionId
-      const session = this.sessionManager.get(sessionID)
+      let session = this.sessionManager.tryGet(sessionID)
+      
+      // If session not in memory, we cannot proceed
+      // Sessions must be loaded via session/load or session/new before sending prompts
+      if (!session) {
+        log.error("session not found in ACP session manager", { sessionID })
+        throw RequestError.invalidParams(JSON.stringify({ error: `Session not found: ${sessionID}. Please load the session first using session/load or session/new.` }))
+      }
+      
       const directory = session.cwd
 
       const current = session.model
