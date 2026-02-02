@@ -33,8 +33,10 @@ export function DialogForkFromTimeline(props: { sessionID: string; onMove: (mess
         footer: Locale.time(message.time.created),
         onSelect: async (dialog) => {
           const forked = await sdk.client.session.fork({
-            sessionID: props.sessionID,
-            messageID: message.id,
+            path: { sessionID: props.sessionID },
+            body: {
+              messageID: message.id,
+            },
           })
           const parts = sync.data.part[message.id] ?? []
           const initialPrompt = parts.reduce(

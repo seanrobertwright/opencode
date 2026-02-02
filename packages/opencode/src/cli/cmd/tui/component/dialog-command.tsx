@@ -98,6 +98,25 @@ function init() {
     },
     suspended,
     show() {
+      // #region agent log
+      const options = visibleOptions()
+      fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "commands-pre-fix",
+          hypothesisId: "H5",
+          location: "component/dialog-command.tsx:show",
+          message: "command list opened",
+          data: {
+            count: options.length,
+            hasAgentSpawn: options.some((option) => option.value === "agent.spawn"),
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
       dialog.replace(() => <DialogCommand options={visibleOptions()} suggestedOptions={suggestedOptions()} />)
     },
     register(cb: () => CommandOption[]) {

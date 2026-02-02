@@ -248,7 +248,7 @@ export function Session() {
           // #endregion
           // Always verify session exists on server before syncing
           // This handles cases where session was deleted but still in local store
-          const sessionResponse = await sdk.client.session.get({ sessionID })
+          const sessionResponse = await sdk.client.session.get({ path: { sessionID } })
           if (!sessionResponse.data) {
             // #region agent log
             fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
@@ -617,9 +617,11 @@ export function Session() {
           return
         }
         sdk.client.session.summarize({
-          sessionID: route.sessionID,
-          modelID: selectedModel.modelID,
-          providerID: selectedModel.providerID,
+          path: { sessionID: route.sessionID },
+          body: {
+            modelID: selectedModel.modelID,
+            providerID: selectedModel.providerID,
+          },
         })
         dialog.clear()
       },
@@ -653,7 +655,8 @@ export function Session() {
       },
       onSelect: async (dialog) => {
         const status = sync.data.session_status?.[route.sessionID]
-        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => {})
+        if (status?.type !== "idle")
+          await sdk.client.session.abort({ path: { sessionID: route.sessionID } }).catch(() => {})
         const revert = session()?.revert?.messageID
         const message = messages().findLast((x) => (!revert || x.id < revert) && x.role === "user")
         if (!message) return
@@ -696,15 +699,15 @@ export function Session() {
         if (!messageID) return
         const message = messages().find((x) => x.role === "user" && x.id > messageID)
         if (!message) {
-          sdk.client.session.unrevert({
-            sessionID: route.sessionID,
-          })
+          sdk.client.session.unrevert({ path: { sessionID: route.sessionID } })
           prompt.set({ input: "", parts: [] })
           return
         }
         sdk.client.session.revert({
-          sessionID: route.sessionID,
-          messageID: message.id,
+          path: { sessionID: route.sessionID },
+          body: {
+            messageID: message.id,
+          },
         })
       },
     },

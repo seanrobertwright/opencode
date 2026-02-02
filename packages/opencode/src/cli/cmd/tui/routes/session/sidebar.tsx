@@ -1,5 +1,5 @@
 import { useSync } from "@tui/context/sync"
-import { createMemo, For, Show, Switch, Match } from "solid-js"
+import { createMemo, createEffect, For, Show, Switch, Match } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useTheme } from "../../context/theme"
 import { Locale } from "@/util/locale"
@@ -38,6 +38,29 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const agentEntries = createMemo(() =>
     Object.values(sync.data.agent_process).sort((a, b) => a.createdAt - b.createdAt),
   )
+
+  createEffect(() => {
+    const agents = agentEntries()
+    // #region agent log
+    fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "agents-pre-fix",
+        hypothesisId: "D1",
+        location: "routes/session/sidebar.tsx:agent.entries",
+        message: "agent entries updated",
+        data: {
+          count: agents.length,
+          ids: agents.map((agent) => agent.id),
+          titles: agents.map((agent) => agent.title),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
+  })
 
   // Count running and error agent processes
   const runningAgentCount = createMemo(

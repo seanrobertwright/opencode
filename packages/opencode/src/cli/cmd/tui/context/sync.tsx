@@ -330,6 +330,27 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
         case "agent-process.created":
         case "agent-process.updated": {
+          // #region agent log
+          fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: "debug-session",
+              runId: "agents-pre-fix",
+              hypothesisId: "D2",
+              location: "context/sync.tsx:agent-process.event",
+              message: "agent process event received",
+              data: {
+                event: event.type,
+                id: event.properties.info.id,
+                title: event.properties.info.title,
+                status: event.properties.info.status,
+                sessionID: event.properties.info.sessionID,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
           setStore("agent_process", event.properties.info.id, reconcile(event.properties.info))
           break
         }
@@ -463,10 +484,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         async sync(sessionID: string) {
           if (fullSyncedSessions.has(sessionID)) return
           const [session, messages, todo, diff] = await Promise.all([
-            sdk.client.session.get({ sessionID }, { throwOnError: true }),
-            sdk.client.session.messages({ sessionID, limit: 100 }),
-            sdk.client.session.todo({ sessionID }),
-            sdk.client.session.diff({ sessionID }),
+            sdk.client.session.get({ path: { sessionID } }, { throwOnError: true }),
+            sdk.client.session.messages({ path: { sessionID }, query: { limit: 100 } }),
+            sdk.client.session.todo({ path: { sessionID } }),
+            sdk.client.session.diff({ path: { sessionID } }),
           ])
           setStore(
             produce((draft) => {

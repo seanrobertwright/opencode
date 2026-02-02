@@ -254,7 +254,7 @@ function App() {
       if (args.sessionID) {
         // Verify session exists before navigating
         sdk.client.session
-          .get({ sessionID: args.sessionID })
+          .get({ path: { sessionID: args.sessionID } })
           .then((response) => {
             if (response.data) {
               route.navigate({
@@ -289,7 +289,7 @@ function App() {
       lastCheckedSessionID = match
       // Verify session exists before navigating
       try {
-        const response = await sdk.client.session.get({ sessionID: match })
+        const response = await sdk.client.session.get({ path: { sessionID: match } })
         if (response.data) {
           continued = true
           route.navigate({ type: "session", sessionID: match })
@@ -741,7 +741,7 @@ function SessionRouteGuard(props: { sessionID: string }) {
     () => props.sessionID,
     async (sessionID) => {
       try {
-        const response = await sdk.client.session.get({ sessionID })
+        const response = await sdk.client.session.get({ path: { sessionID } })
         return !!response.data
       } catch (e: any) {
         const isNotFound =

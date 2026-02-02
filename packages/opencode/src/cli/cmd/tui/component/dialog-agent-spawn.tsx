@@ -25,22 +25,76 @@ export function DialogAgentSpawn(props: DialogAgentSpawnProps) {
           toast.show({ message: "Agent title is required", variant: "error" })
           return
         }
-        const res = await fetch(`${sdk.url}/agent-process`, {
+        // #region agent log
+        fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-opencode-directory": directory(),
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "spawn-pre-fix",
+            hypothesisId: "S1",
+            location: "component/dialog-agent-spawn.tsx:spawn.request",
+            message: "agent spawn request start",
+            data: {
+              sessionID: props.sessionID,
+              titleLength: title.trim().length,
+              url: sdk.url,
+              directory: directory(),
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
+        const res = await sdk.client.agentProcess.spawn({
+          body: {
             parentSessionID: props.sessionID,
             title: title.trim(),
-          }),
+          },
+          query: {
+            directory: directory(),
+          },
         })
-        if (!res.ok) {
-          const text = await res.text().catch(() => "Unknown error")
+        if (res.error) {
+          // #region agent log
+          fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: "debug-session",
+              runId: "spawn-pre-fix",
+              hypothesisId: "S3",
+              location: "component/dialog-agent-spawn.tsx:spawn.response.error",
+              message: "agent spawn response error",
+              data: {
+                error: res.error,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
+          const text = typeof res.error === "string" ? res.error : JSON.stringify(res.error)
           toast.show({ message: `Failed to spawn agent: ${text}`, variant: "error" })
           return
         }
+        // #region agent log
+        fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "spawn-pre-fix",
+            hypothesisId: "S3",
+            location: "component/dialog-agent-spawn.tsx:spawn.response.ok",
+            message: "agent spawn response ok",
+            data: {
+              hasData: !!res.data,
+              id: res.data?.id,
+              title: res.data?.title,
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
         toast.show({ message: `Agent "${title}" spawned`, variant: "success" })
         dialog.clear()
       }}
