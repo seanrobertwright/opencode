@@ -75,7 +75,8 @@ export function Home() {
         setSpawning(true)
         const res = await sdk.client.session.create({})
         if (res.error || !res.data) {
-          const text = res.error ? (typeof res.error === "string" ? res.error : JSON.stringify(res.error)) : "Unknown error"
+          const error = res.error
+          const text = error ? (typeof error === "string" ? error : JSON.stringify(error)) : "Unknown error"
           toast.show({ message: `Failed to start session: ${text}`, variant: "error" })
           setSpawning(false)
           return

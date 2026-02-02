@@ -20,6 +20,28 @@ function createWorkerFetch(client: RpcClient): typeof fetch {
   const fn = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const request = new Request(input, init)
     const body = request.body ? await request.text() : undefined
+    if (request.url.includes("/agent-process")) {
+      // #region agent log
+      fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "debug-session",
+          runId: "spawn-pre-fix",
+          hypothesisId: "S4",
+          location: "tui/thread.ts:createWorkerFetch",
+          message: "agent-process request via worker fetch",
+          data: {
+            url: request.url,
+            method: request.method,
+            hasBody: body !== undefined,
+            bodyLength: body?.length ?? 0,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+    }
     const result = await client.call("fetch", {
       url: request.url,
       method: request.method,

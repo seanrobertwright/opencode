@@ -1,7 +1,7 @@
 import { render, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
 import { TextAttributes } from "@opentui/core"
-import { RouteProvider, useRoute } from "@tui/context/route"
+import { RouteProvider, useRoute, type SessionRoute } from "@tui/context/route"
 import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show, on, createResource } from "solid-js"
 import { Installation } from "@/installation"
 import { Flag } from "@/flag/flag"
@@ -253,13 +253,14 @@ function App() {
       }
       if (args.sessionID) {
         // Verify session exists before navigating
+        const sessionToNavigate = args.sessionID
         sdk.client.session
-          .get({ path: { sessionID: args.sessionID } })
+          .get({ sessionID: sessionToNavigate })
           .then((response) => {
             if (response.data) {
               route.navigate({
                 type: "session",
-                sessionID: args.sessionID,
+                sessionID: sessionToNavigate,
               })
             }
           })
@@ -289,7 +290,7 @@ function App() {
       lastCheckedSessionID = match
       // Verify session exists before navigating
       try {
-        const response = await sdk.client.session.get({ path: { sessionID: match } })
+        const response = await sdk.client.session.get({ sessionID: match })
         if (response.data) {
           continued = true
           route.navigate({ type: "session", sessionID: match })
@@ -716,7 +717,7 @@ function App() {
           <Home />
         </Match>
         <Match when={route.data.type === "session"}>
-          <SessionRouteGuard sessionID={route.data.sessionID} />
+          <SessionRouteGuard sessionID={(route.data as SessionRoute).sessionID} />
         </Match>
       </Switch>
     </box>
@@ -741,7 +742,7 @@ function SessionRouteGuard(props: { sessionID: string }) {
     () => props.sessionID,
     async (sessionID) => {
       try {
-        const response = await sdk.client.session.get({ path: { sessionID } })
+        const response = await sdk.client.session.get({ sessionID })
         return !!response.data
       } catch (e: any) {
         const isNotFound =

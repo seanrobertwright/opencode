@@ -29,10 +29,8 @@ export function DialogMessage(props: {
             if (!msg) return
 
             sdk.client.session.revert({
-              path: { sessionID: props.sessionID },
-              body: {
-                messageID: msg.id,
-              },
+              sessionID: props.sessionID,
+              messageID: msg.id,
             })
 
             if (props.setPrompt) {
@@ -79,10 +77,8 @@ export function DialogMessage(props: {
           description: "create a new session",
           onSelect: async (dialog) => {
             const result = await sdk.client.session.fork({
-              path: { sessionID: props.sessionID },
-              body: {
-                messageID: props.messageID,
-              },
+              sessionID: props.sessionID,
+              messageID: props.messageID,
             })
             const initialPrompt = (() => {
               const msg = message()

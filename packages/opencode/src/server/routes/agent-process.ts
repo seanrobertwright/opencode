@@ -89,7 +89,7 @@ export const AgentProcessRoutes = lazy(() =>
               },
             },
           },
-          404: errors[404],
+          ...errors(404),
         },
       }),
       validator(
@@ -125,7 +125,7 @@ export const AgentProcessRoutes = lazy(() =>
               },
             },
           },
-          404: errors[404],
+          ...errors(404),
         },
       }),
       async (c) => {

@@ -52,13 +52,9 @@ export function DialogAgentSpawn(props: DialogAgentSpawnProps) {
         }).catch(() => {})
         // #endregion
         const res = await sdk.client.agentProcess.spawn({
-          body: {
-            parentSessionID: props.sessionID,
-            title: title.trim(),
-          },
-          query: {
-            directory: directory(),
-          },
+          parentSessionID: props.sessionID,
+          title: title.trim(),
+          directory: directory(),
         })
         if (res.error) {
           // #region agent log

@@ -55,6 +55,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
           count: agents.length,
           ids: agents.map((agent) => agent.id),
           titles: agents.map((agent) => agent.title),
+          statuses: agents.map((agent) => agent.status),
         },
         timestamp: Date.now(),
       }),

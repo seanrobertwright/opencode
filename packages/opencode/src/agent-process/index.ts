@@ -147,6 +147,26 @@ export namespace AgentProcess {
   function updateStatus(id: string, status: Status, error?: string) {
     const handle = agents.get(id)
     if (!handle) return
+    // #region agent log
+    fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "agent-status-pre-fix",
+        hypothesisId: "U1",
+        location: "agent-process/index.ts:updateStatus",
+        message: "agent process status update",
+        data: {
+          id,
+          from: handle.info.status,
+          to: status,
+          error: error ?? null,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
 
     handle.info.status = status
     handle.info.lastActivity = Date.now()
@@ -158,6 +178,25 @@ export namespace AgentProcess {
   export async function sendPrompt(id: string, prompt: string): Promise<void> {
     const handle = agents.get(id)
     if (!handle) throw new Error(`Agent not found: ${id}`)
+    // #region agent log
+    fetch("http://127.0.0.1:7243/ingest/0b24d0a3-30e2-4cf7-84c6-becac3c687aa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "agent-status-pre-fix",
+        hypothesisId: "U2",
+        location: "agent-process/index.ts:sendPrompt",
+        message: "agent process sendPrompt",
+        data: {
+          id,
+          sessionID: handle.info.sessionID,
+          promptLength: prompt.length,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
 
     const { info } = handle
 

@@ -222,7 +222,7 @@ export function Prompt(props: PromptProps) {
 
           if (store.interrupt >= 2) {
             sdk.client.session.abort({
-              path: { sessionID: props.sessionID },
+              sessionID: props.sessionID,
             })
             setStore("interrupt", 0)
           }
@@ -663,15 +663,13 @@ export function Prompt(props: PromptProps) {
 
     if (store.mode === "shell") {
       sdk.client.session.shell({
-        path: { sessionID },
-        body: {
-          agent: local.agent.current().name,
-          model: {
-            providerID: selectedModel.providerID,
-            modelID: selectedModel.modelID,
-          },
-          command: inputText,
+        sessionID,
+        agent: local.agent.current().name,
+        model: {
+          providerID: selectedModel.providerID,
+          modelID: selectedModel.modelID,
         },
+        command: inputText,
       })
       setStore("mode", "normal")
     } else if (
@@ -690,46 +688,42 @@ export function Prompt(props: PromptProps) {
       const args = firstLineArgs.join(" ") + (restOfInput ? "\n" + restOfInput : "")
 
       sdk.client.session.command({
-        path: { sessionID },
-        body: {
-          command: command.slice(1),
-          arguments: args,
-          agent: local.agent.current().name,
-          model: `${selectedModel.providerID}/${selectedModel.modelID}`,
-          messageID,
-          variant,
-          parts: nonTextParts
-            .filter((x) => x.type === "file")
-            .map((x) => ({
-              id: Identifier.ascending("part"),
-              ...x,
-            })),
-        },
+        sessionID,
+        command: command.slice(1),
+        arguments: args,
+        agent: local.agent.current().name,
+        model: `${selectedModel.providerID}/${selectedModel.modelID}`,
+        messageID,
+        variant,
+        parts: nonTextParts
+          .filter((x) => x.type === "file")
+          .map((x) => ({
+            id: Identifier.ascending("part"),
+            ...x,
+          })),
       })
     } else {
       sdk.client.session
         .prompt({
-          path: { sessionID },
-          body: {
-            messageID,
-            agent: local.agent.current().name,
-            model: {
-              providerID: selectedModel.providerID,
-              modelID: selectedModel.modelID,
-            },
-            variant,
-            parts: [
-              {
-                id: Identifier.ascending("part"),
-                type: "text",
-                text: inputText,
-              },
-              ...nonTextParts.map((x) => ({
-                id: Identifier.ascending("part"),
-                ...x,
-              })),
-            ],
+          sessionID,
+          messageID,
+          agent: local.agent.current().name,
+          model: {
+            providerID: selectedModel.providerID,
+            modelID: selectedModel.modelID,
           },
+          variant,
+          parts: [
+            {
+              id: Identifier.ascending("part"),
+              type: "text",
+              text: inputText,
+            },
+            ...nonTextParts.map((x) => ({
+              id: Identifier.ascending("part"),
+              ...x,
+            })),
+          ],
         })
         .catch(() => {})
     }

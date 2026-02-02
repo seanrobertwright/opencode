@@ -1,5 +1,6 @@
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
+import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { useSDK } from "@tui/context/sdk"
 import { useToast } from "@tui/ui/toast"
 import { useSync } from "@tui/context/sync"
@@ -43,16 +44,40 @@ export function DialogAgentActions(props: DialogAgentActionsProps) {
       onSelect={async (option) => {
         switch (option.value) {
           case "prompt": {
-            dialog.clear()
-            // TODO: Show prompt dialog
+            dialog.replace(() => (
+              <DialogPrompt
+                title={`Prompt ${props.agent.title}`}
+                placeholder="Enter a prompt for this agent"
+                onConfirm={async (value) => {
+                  const prompt = value.trim()
+                  if (!prompt) {
+                    toast.show({ message: "Prompt is required", variant: "error" })
+                    return
+                  }
+                  const res = await sdk.client.agentProcess.sendPrompt({
+                    id: props.agent.id,
+                    prompt,
+                    directory: directory(),
+                  })
+                  if (res.error || !res.data?.success) {
+                    const text = res.error ? (typeof res.error === "string" ? res.error : JSON.stringify(res.error)) : ""
+                    toast.show({ message: `Failed to send prompt${text ? `: ${text}` : ""}`, variant: "error" })
+                    return
+                  }
+                  toast.show({ message: "Prompt sent", variant: "success" })
+                  dialog.clear()
+                }}
+                onCancel={() => dialog.clear()}
+              />
+            ))
             break
           }
           case "cancel": {
-            const res = await fetch(`${sdk.url}/agent-process/${props.agent.id}/cancel`, {
-              method: "POST",
-              headers: { "x-opencode-directory": directory() },
+            const res = await sdk.client.agentProcess.cancel({
+              id: props.agent.id,
+              directory: directory(),
             })
-            if (!res.ok) {
+            if (res.error || !res.data?.success) {
               toast.show({ message: "Failed to cancel agent", variant: "error" })
             } else {
               toast.show({ message: "Cancelled", variant: "success" })
@@ -61,11 +86,11 @@ export function DialogAgentActions(props: DialogAgentActionsProps) {
             break
           }
           case "stop": {
-            const res = await fetch(`${sdk.url}/agent-process/${props.agent.id}/stop`, {
-              method: "POST",
-              headers: { "x-opencode-directory": directory() },
+            const res = await sdk.client.agentProcess.stop({
+              id: props.agent.id,
+              directory: directory(),
             })
-            if (!res.ok) {
+            if (res.error || !res.data?.success) {
               toast.show({ message: "Failed to stop agent", variant: "error" })
             } else {
               toast.show({ message: "Agent stopped", variant: "success" })
